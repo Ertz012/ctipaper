@@ -1,0 +1,222 @@
+% ===========================================================================
+% MetaCTI -- Bibliographie
+% Alle Einträge vor Submission gegen die Originalpublikationen prüfen.
+% ===========================================================================
+
+% ---------------------------------------------------------------------------
+% KERN-PROTOKOLLE
+% ---------------------------------------------------------------------------
+
+@inproceedings{eskandarian2021express,
+  author    = {Saba Eskandarian and Henry Corrigan-Gibbs and
+               Matei Zaharia and Dan Boneh},
+  title     = {{Express}: Lowering the Cost of Metadata-hiding Communication
+               with Cryptographic Privacy},
+  booktitle = {Proceedings of the 30th {USENIX} Security Symposium},
+  year      = {2021},
+  pages     = {1773--1790},
+  publisher = {{USENIX} Association},
+  url       = {https://www.usenix.org/conference/usenixsecurity21/presentation/eskandarian},
+}
+
+@inproceedings{corrigan2015riposte,
+  author    = {Henry Corrigan-Gibbs and Dan Boneh and David Mazières},
+  title     = {{Riposte}: An Anonymous Messaging System Handling Millions
+               of Users},
+  booktitle = {Proceedings of the {IEEE} Symposium on Security and Privacy
+               ({S\&P})},
+  year      = {2015},
+  pages     = {321--338},
+  publisher = {{IEEE}},
+  doi       = {10.1109/SP.2015.27},
+}
+
+@inproceedings{eskandarian2024abuse,
+  author    = {Saba Eskandarian and Dan Boneh},
+  title     = {Abuse Reporting for Metadata-Hiding Communication Based on
+               Secret Sharing},
+  booktitle = {Proceedings of the 33rd {USENIX} Security Symposium},
+  year      = {2024},
+  publisher = {{USENIX} Association},
+  note      = {TODO: Seitenzahlen und URL verifizieren},
+}
+
+@inproceedings{corrigan2010dissent,
+  author    = {Henry Corrigan-Gibbs and Bryan Ford},
+  title     = {Dissent: Accountable Anonymous Group Messaging},
+  booktitle = {Proceedings of the 17th {ACM} Conference on Computer and
+               Communications Security ({CCS})},
+  year      = {2010},
+  pages     = {340--350},
+  publisher = {{ACM}},
+  doi       = {10.1145/1866307.1866346},
+}
+
+% ---------------------------------------------------------------------------
+% CTI-SHARING -- RELATED WORK
+% ---------------------------------------------------------------------------
+
+@inproceedings{wagner2018,
+  author    = {Cédric Wagner and Alexandre Dulaunoy and Gérard Wagener
+               and Andras Iklody},
+  title     = {Towards an Anonymity Supported Platform for Shared Cyber
+               Threat Intelligence},
+  booktitle = {Proceedings of the 12th International Conference on Risks
+               and Security of Internet and Systems ({CRiSIS})},
+  year      = {2018},
+  note      = {TODO: Verlag und Seitenzahlen verifizieren; Wagner 2017/2018 prüfen},
+}
+
+@article{huff2024,
+  author    = {Parker Huff and Kaiqi Xiong and Zhiqiang Lin},
+  title     = {A Privacy-Preserving Cyber Threat Intelligence Sharing System},
+  journal   = {{IEEE} Transactions on Privacy and Security ({TPS})},
+  year      = {2024},
+  note      = {TODO: Volume, Nummer, Seitenzahlen, DOI verifizieren},
+}
+
+@article{alsaedi2024sectis,
+  author    = {Nasser Alsaedi and Frederic Stahl and Fiona Carroll},
+  title     = {{SeCTIS}: A Framework to Secure {CTI} Sharing},
+  journal   = {Future Generation Computer Systems ({FGCS})},
+  year      = {2024},
+  note      = {TODO: Volume, Seitenzahlen, DOI verifizieren},
+}
+
+@mastersthesis{fischer_eth,
+  author    = {TODO: Vorname Fischer},
+  title     = {Privacy-Preserving Federated Learning for {CTI} Sharing},
+  school    = {{ETH} Zürich},
+  year      = {TODO: Jahr},
+  type      = {Master's Thesis},
+  note      = {TODO: Vollständiger Name und Jahr verifizieren},
+}
+
+% ---------------------------------------------------------------------------
+% STANDARDS
+% ---------------------------------------------------------------------------
+
+@techreport{stix21,
+  author      = {{OASIS}},
+  title       = {STIX\texttrademark{} Version 2.1},
+  institution = {OASIS},
+  year        = {2021},
+  type        = {OASIS Standard},
+  url         = {https://docs.oasis-open.org/cti/stix/v2.1/stix-v2.1.html},
+}
+
+@techreport{taxii21,
+  author      = {{OASIS}},
+  title       = {{TAXII}\texttrademark{} Version 2.1},
+  institution = {OASIS},
+  year        = {2021},
+  type        = {OASIS Standard},
+  url         = {https://docs.oasis-open.org/cti/taxii/v2.1/taxii-v2.1.html},
+}
+
+% ---------------------------------------------------------------------------
+% REGULATORISCHE BERICHTE
+% ---------------------------------------------------------------------------
+
+@techreport{enisa_cti_barriers,
+  author      = {{ENISA}},
+  title       = {Threat Landscape and Good Practice Guide for Information
+                 Security Threat Information Sharing},
+  institution = {European Union Agency for Cybersecurity (ENISA)},
+  year        = {TODO: Jahr},
+  url         = {https://www.enisa.europa.eu/},
+  note        = {TODO: Spezifischen Bericht zu CTI-Sharing-Barrieren
+                 identifizieren und zitieren},
+}
+
+@techreport{cisa_sharing,
+  author      = {{CISA}},
+  title       = {Traffic Light Protocol ({TLP}) Definitions and Usage},
+  institution = {Cybersecurity and Infrastructure Security Agency},
+  year        = {TODO: Jahr},
+  url         = {https://www.cisa.gov/},
+  note        = {TODO: Relevanteste CISA-Publikation zu Sharing-Barrieren
+                 ergänzen},
+}
+
+% ---------------------------------------------------------------------------
+% KRYPTOGRAFIE -- TECHNISCHE GRUNDLAGEN
+% ---------------------------------------------------------------------------
+
+@inproceedings{boyle2016dpf,
+  author    = {Elette Boyle and Niv Gilboa and Yuval Ishai},
+  title     = {Function Secret Sharing: Improvements and Extensions},
+  booktitle = {Proceedings of the {ACM} Conference on Computer and
+               Communications Security ({CCS})},
+  year      = {2016},
+  pages     = {1292--1303},
+  publisher = {{ACM}},
+  doi       = {10.1145/2976749.2978429},
+  note      = {Basisreferenz für Distributed Point Functions (DPF),
+               die für PIR in EXPRESS genutzt werden},
+}
+
+@inproceedings{boneh2020pir,
+  author    = {Dan Boneh and Elette Boyle and Henry Corrigan-Gibbs and
+               Niv Gilboa and Yuval Ishai},
+  title     = {Lightweight Techniques for Private Heavy Hitters},
+  booktitle = {Proceedings of the {IEEE} Symposium on Security and Privacy
+               ({S\&P})},
+  year      = {2021},
+  publisher = {{IEEE}},
+  note      = {TODO: Prüfen ob relevanter als Boyle 2016 für PIR-Kontext},
+}
+
+% BBS+ für ZKP-Membership (Huff et al. verwenden es)
+@misc{bbs_signature,
+  author    = {Tobias Looker and Vasilis Kalos and Andrew Whitehead
+               and Mike Lodder},
+  title     = {{BBS} Signature Scheme},
+  year      = {2023},
+  note      = {{IETF} Internet-Draft draft-irtf-cfrg-bbs-signatures;
+               TODO: auf aktuelle Version prüfen},
+  url       = {https://identity.foundation/bbs-signature/draft-irtf-cfrg-bbs-signatures.html},
+}
+
+% ---------------------------------------------------------------------------
+% WEITERE ANONYME MESSAGING-SYSTEME (für Related Work)
+% ---------------------------------------------------------------------------
+
+@inproceedings{pung,
+  author    = {TODO},
+  title     = {Pung: Unobservable Communication over Fully Untrusted
+               Infrastructure},
+  booktitle = {Proceedings of the {USENIX} Symposium on Operating Systems
+               Design and Implementation ({OSDI})},
+  year      = {2016},
+  note      = {TODO: Korrekte Autoren und Seitenzahlen; wird in EXPRESS
+               als Vergleichssystem genannt (100x langsamer)},
+}
+
+@inproceedings{signal_metadata,
+  author    = {TODO},
+  title     = {TODO: Relevante Signal-Arbeit zu Metadaten-Schutz},
+  year      = {TODO},
+  note      = {Optional: nur wenn in Related Work relevant},
+}
+
+% ---------------------------------------------------------------------------
+% IMPLEMENTIERUNG / DATENSÄTZE
+% ---------------------------------------------------------------------------
+
+@misc{express_code,
+  author    = {Saba Eskandarian},
+  title     = {{EXPRESS}: Reference Implementation},
+  year      = {2021},
+  url       = {https://github.com/TODO/express},
+  note      = {TODO: Korrekten GitHub-Link für EXPRESS-Codebase eintragen},
+}
+
+@misc{misp_feeds,
+  author    = {{MISP Project}},
+  title     = {{MISP} Community Threat Intelligence Feeds},
+  year      = {2024},
+  url       = {https://www.misp-project.org/feeds/},
+  note      = {Öffentliche MISP Community Feeds, genutzt für
+               Workload-Charakterisierung in §\ref{sec:workload}},
+}
