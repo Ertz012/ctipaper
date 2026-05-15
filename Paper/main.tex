@@ -1,0 +1,36 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{parskip} % Adds space between paragraphs
+
+\title{Cyber Threat Intelligence Sharing over DC-Networks}
+\author{Simon Meyer}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+In an increasingly interconnected digital landscape, proactively defending against cyber threats presents a collective challenge that goes beyond the capabilities of individual organizations.
+The exchange of Cyber Threat Intelligence (CTI) has proven essential for significantly increasing the detection rate of attacks.
+Nevertheless, many stakeholders, particularly in the critical infrastructure sector, are reluctant to share sensitive threat information.
+One reason for this is the concern about unintentionally revealing their own identity or infrastructure details, which could lead to reputational damage or targeted follow-up attacks.
+
+Existing anonymous CTI-sharing systems often protect the anonymity of the CTI provider only from the system operators.
+In some cases, anonymity is also maintained vis-à-vis other participants, but only if they are honest and follow the protocol.
+These systems are typically based on blockchain technology to preserve anonymity.
+However, these approaches do not protect against network observers, as a participant in the system who monitors the network interfaces can link the transmission of data from one participant to the receipt of CTI.
+
+The scientific literature is increasingly addressing this trade-off between information exchange and data protection through privacy-enhancing technologies (PETs).
+While conventional anonymization services such as mix networks and onion routing approaches like Tor form a widely used foundation for anonymous communication, their architecture makes them unsuitable for CTI sharing.
+
+As a robust alternative, Dining Cryptographers Networks (DC-nets), based on the theoretical foundations of David Chaum, offer information-theoretically guaranteed sender anonymity.
+Unlike mix networks, protection in DC networks does not rely on computational complexity or packet delay, but on indistinguishability within a logical group through cryptographic overlay.
+
+This paper presents a system design for the anonymous exchange of CTI data that leverages the strong anonymity of DC-nets.
+The goal is to create a framework that enables organizations to share threat intelligence in real time without compromising the confidentiality of the sender’s identity.
+
+
+\end{document}
+
