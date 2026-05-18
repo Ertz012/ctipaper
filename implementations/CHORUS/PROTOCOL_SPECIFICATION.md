@@ -1,12 +1,12 @@
-# TIPress Protocol Specification (v0.2 — Spectrum-based)
+# CHORUS Protocol Specification (v0.2 — Spectrum-based)
 
-**System name (working):** *TIPress* — *Threat Intelligence Press*: ein rundenbasiertes anonymes CTI-Bulletin-Board-Protokoll auf Basis von Spectrum, mit STIX-Fingerprint-Deduplikation und client-seitiger Threshold-Verifikation.
+**System name (working):** *CHORUS* — *Cryptographic Hidden-Origin Reporting Under Spectrum*: ein rundenbasiertes anonymes CTI-Bulletin-Board-Protokoll auf Basis von Spectrum, mit STIX-Fingerprint-Deduplikation und client-seitiger Threshold-Verifikation.
 
 **Status:** Designspezifikation v0.2 — implementierungsleitend. **Ersetzt v0.1 vollständig.** Die vorherige Express-basierte Variante wurde verworfen; das aktuelle Design basiert auf Spectrum (Newman, Servan-Schreiber, Devadas, NSDI 2022).
 
 **Begründung für den Wechsel:** Express ist ein Mailbox-Modell (jeder Sender hat einen privaten Slot beim Empfänger). Spectrum ist ein *echtes Broadcast-Modell*: wenige berechtigte Sender broadcasten an viele Empfänger, mit Anonymität gegenüber der Gesamt-Client-Menge. Das matcht die CTI-Realität deutlich besser: in einer typischen Epoche möchten nur wenige Mitglieder einer ISAC tatsächlich teilen, alle anderen sind Empfänger und liefern Cover-Traffic. Spectrum verlagert die Per-Request-Serverarbeit von $O(N)$ auf $O(L)$, wobei $L \ll N$ die Anzahl simultaner Broadcaster ist — eine substantielle Performance-Verbesserung für unseren Use-Case.
 
-**Wissenschaftliche Contributions, die TIPress trägt:**
+**Wissenschaftliche Contributions, die CHORUS trägt:**
 
 1. **Rundenbasiertes Per-Round-Broadcaster-Rotation-Schema** *(neu)*. Spectrum sieht *langlebige* Broadcaster vor, die einmalig registriert sind. CTI braucht *episodisches* Broadcasting: ein Mitglied teilt vielleicht heute etwas, in zwei Wochen wieder, dazwischen nichts. Wir entwickeln ein zwei-phasiges Round-Modell: leichtgewichtige Bootstrap-Phase (Riposte) für die anonyme Broadcaster-Anmeldung pro Window, gefolgt von einer Sequenz von Main-Phasen (Spectrum) innerhalb des Windows. Window-basierte Channel-Persistenz reduziert Bootstrap-Overhead.
 
@@ -49,7 +49,7 @@
 
 ### 1.1 Designprinzipien
 
-- **P1 — Asymmetrie nutzen.** CTI-Sharing ist inhärent asymmetrisch: viele Empfänger, wenige aktive Sender pro Zeitraum. Spectrum nutzt diese Asymmetrie für Server-Effizienz. TIPress macht sie explizit zum Architektur-Prinzip.
+- **P1 — Asymmetrie nutzen.** CTI-Sharing ist inhärent asymmetrisch: viele Empfänger, wenige aktive Sender pro Zeitraum. Spectrum nutzt diese Asymmetrie für Server-Effizienz. CHORUS macht sie explizit zum Architektur-Prinzip.
 - **P2 — Schichtenseparation.** Bootstrap-, Main-, Publish-, Output-Privacy- und Consume-Phasen sind klar getrennt. Jede hat eigene Schnittstellen, Sicherheitsannahmen und Performance-Charakteristiken.
 - **P3 — Bit-genaue Veröffentlichung des Inhalts.** Wo Records publiziert werden, sind sie bit-genau. Der Output-Privacy-Layer manipuliert ausschließlich Metadaten der Veröffentlichung.
 - **P4 — Defense in Depth gegen Poisoning.** Mehrere Verteidigungsschichten gegen falsche IOCs: (a) Spectrum-Audit gegen Disruption, (b) Hash-Blacklist gegen Multi-Submission durch einen Submitter, (c) Fingerprint-Robustheit gegen "kosmetisch verändertes Re-Submit", (d) Client-Threshold gegen Single-Source-Behauptungen.
@@ -59,7 +59,7 @@
 
 ```
                 ┌──────────────────────────────────────────────────────┐
-                │                  TIPress System                      │
+                │                  CHORUS System                      │
                 │                                                      │
    Members      │  ┌─────────┐    ┌─────────┐    ┌─────────┐          │
    (Alice,      │  │ Alice   │    │  Bob    │ …  │ Member  │          │
@@ -138,7 +138,7 @@ Pro Window: 1 Bootstrap, danach 36 Main-Phasen (bei 10-min-Main-Phase und 6-h-Wi
 | $g^{\alpha_j}$ | öffentlicher Verifikations-Key für Channel $j$ |
 | $\mathbb{F}$ | endlicher Körper für Spectrum-MAC, hier $\mathbb{F}_p$ mit $p$ prime von $\approx 2^{128}$ |
 | $\mathbb{G}$ | zyklische Gruppe (Curve25519-Punkte) für $g^{\alpha}$-Operationen |
-| $|m|$ | Nachrichten-Größe in Bytes (≤ 32 KB für TIPress) |
+| $|m|$ | Nachrichten-Größe in Bytes (≤ 32 KB für CHORUS) |
 | $\mathsf{fp}(m)$ | STIX-Fingerprint, $\{0,1\}^{256}$ |
 | $H$ | kryptographische Hash-Funktion (BLAKE3) |
 | $\mathsf{BL}_w$ | Hash-Blacklist für Window $w$ |
@@ -214,10 +214,10 @@ PRG(seed, n) → bytes                   Pseudo-random byte stream
 ### 4.1 Globale Konfiguration
 
 ```yaml
-# tipress-config.yaml
+# chorus-config.yaml
 
 system:
-  name: "TIPress"
+  name: "CHORUS"
   version: "0.2"
   base_protocol: "Spectrum (NSDI 2022)"
   bootstrap_protocol: "Riposte (S&P 2015)"
@@ -312,7 +312,7 @@ Onboarding (one-time, mit ISAC-Authority I):
        K_i_master  ← random_bytes(32)
   4. I führt BBS+ blind issuance aus, wobei k_i als verstecktes Attribut
      gebunden wird:
-       k_i ← scalar_from_K_master(K_i_master, "tipress-base-scalar")
+       k_i ← scalar_from_K_master(K_i_master, "chorus-base-scalar")
               // k_i ∈ Z_q (Skalar in der Ristretto255-Gruppe)
        cred_i ← BBS+.Sign(sk_I,
                           attributes = (member_id,
@@ -326,8 +326,8 @@ Onboarding (one-time, mit ISAC-Authority I):
 Pro Woche w (automatisch, ohne Interaktion mit I):
 
   k_i^(w) ← scalar_from(HKDF(K_i_master,
-                              salt = "tipress-week-" || encode(w),
-                              info = "tipress-week-scalar-v1",
+                              salt = "chorus-week-" || encode(w),
+                              info = "chorus-week-scalar-v1",
                               length = 64))
             // 64 Bytes → modular reduzieren auf Z_q für Bias-Vermeidung
   pk_i^(w) ← g^{k_i^(w)}
@@ -629,7 +629,7 @@ V4.  Verifizierte Round-Publikation:
 
 ### 7.3 Pseudonym-Konstruktion und Anonymitäts-Garantie
 
-TIPress verwendet **content-bound linkable Pseudonyme** mit ZKP-basierter Soundness und post-Aggregation-Verifikation. Die Konstruktion löst alle drei zentralen Anforderungen simultan:
+CHORUS verwendet **content-bound linkable Pseudonyme** mit ZKP-basierter Soundness und post-Aggregation-Verifikation. Die Konstruktion löst alle drei zentralen Anforderungen simultan:
 
 1. **Member-spezifisch:** Pseudonym $P = H_\mathsf{fp}^{k_i^{(w)}}$ hängt von $k_i^{(w)}$ ab. Verschiedene Member produzieren verschiedene $P$ für dasselbe IOC.
 2. **Inhalts-gebunden:** $P$ ist deterministisch in $\mathsf{fp}$. Derselbe Member produziert dasselbe $P$ für dasselbe IOC — Blacklist-Match.
@@ -670,7 +670,7 @@ Die Verifikation kann an drei Stellen stattfinden:
 
 **Option C: Hybrid.** Dedicated Verifier als Performance-Default; Consumer können bei Bedarf selbst nachverifizieren.
 
-Die initiale TIPress-Implementierung verwendet Option A. Optionen B und C sind über das gleiche Verifier-Modul bedienbar (es läuft entweder beim Consumer oder als Service).
+Die initiale CHORUS-Implementierung verwendet Option A. Optionen B und C sind über das gleiche Verifier-Modul bedienbar (es läuft entweder beim Consumer oder als Service).
 
 ### 7.4 Spectrum-Audit-Subroutinen
 
@@ -707,7 +707,7 @@ Bei $N = 100$, $L = 20$, $|m| = 32$ KB, 10-min-Rounds, 24h/Tag = 144 Rounds:
 
 ## 8. STIX-Fingerprint-Modul
 
-Dies ist das *Kern-Innovationsmodul* von TIPress über Spectrum hinaus.
+Dies ist das *Kern-Innovationsmodul* von CHORUS über Spectrum hinaus.
 
 ### 8.1 Anforderungen
 
@@ -943,7 +943,7 @@ Identisch zu v0.1. Mehrere Main-Rounds werden zu einem Meta-Batch zusammengefass
 
 ### 10.5 Cover-Traffic-Mechanismus (vereinfachte Klarstellung)
 
-In TIPress v0.2 gibt es **nur einen** Cover-Mechanismus:
+In CHORUS v0.2 gibt es **nur einen** Cover-Mechanismus:
 
 **Subscriber-Cover-Traffic (Pflicht).** Jedes Mitglied $P_i$ schickt pro Main-Round genau eine Spectrum-Submission. Wenn $P_i$ Broadcaster in diesem Window ist, ist es eine echte Submission; sonst sendet $P_i$ eine $m = 0$ Spectrum-Cover-Submission. Aus Server- und externer-Beobachter-Sicht sind echte und Cover-Submissions ununterscheidbar (Spectrum-Theorem 1) — Cover-Indistinguishability ist strukturell durch die DPF+MAC-Konstruktion gegeben, ohne separaten Cover-Hash-Mechanismus (§9.2).
 
@@ -961,7 +961,7 @@ Der Consumer-Client (Charlie im Whiteboard) führt clientseitig eine **Wahrheits
 Naive consumer (without threshold):
    for each new verified record in published DB: emit to SIEM
 
-TIPress consumer:
+CHORUS consumer:
    distinct_pseudonyms_per_fp: map<fp, set<P>>
    already_emitted: set<fp>
 
@@ -1397,7 +1397,7 @@ Damit lernt der Verifier keine Information über $k_i^{(w)}$ oder den konkreten 
 ### 15.1 Iteration 1 — Skelett auf Spectrum-Basis (Wochen 1–3)
 
 - Forke die Spectrum-Referenzimplementierung (Rust, ca. 8000 Zeilen, Open Source)
-- Anpasse die Datenstrukturen für die TIPress-Wire-Formate
+- Anpasse die Datenstrukturen für die CHORUS-Wire-Formate
 - Implementiere ChannelPayload-Serialisierung (mit Platzhaltern für fp, P, π)
 - **Akzeptanzkriterium:** End-to-end Spectrum-Roundtrip mit Dummy-Payload funktioniert; agg_A[r] und agg_B[r] werden korrekt publiziert.
 
@@ -1445,7 +1445,7 @@ Damit lernt der Verifier keine Information über $k_i^{(w)}$ oder den konkreten 
 - Workload-Generator (basierend auf MISP Community Feeds)
 - Adversary-Simulationen für Volume/Type/Confirmation/Cluster-Inference (siehe Exposé)
 - Performance-Benchmarks
-- Vergleich Spectrum-Baseline vs. TIPress
+- Vergleich Spectrum-Baseline vs. CHORUS
 
 ---
 
@@ -1453,18 +1453,18 @@ Damit lernt der Verifier keine Information über $k_i^{(w)}$ oder den konkreten 
 
 ### 16.1 Wiederverwendbar 1:1
 
-| Spectrum-Modul | TIPress-Verwendung |
+| Spectrum-Modul | CHORUS-Verwendung |
 |---|---|
 | `dpf/` (2-Server-DPF mit AES-PRG) | Direkt für Main-Round-Submissions |
 | `mac/` (Carter-Wegman) | Direkt für Access Control |
 | `audit/` (Spectrum §3.1/§4.2) | Direkt |
 | `blame/` (BlameGame) | Direkt |
-| `protocols/spectrum.rs` (Server-Pipeline) | Als Basis, mit TIPress-spezifischen Erweiterungen |
+| `protocols/spectrum.rs` (Server-Pipeline) | Als Basis, mit CHORUS-spezifischen Erweiterungen |
 | TLS-Infrastructure | Direkt |
 
 ### 16.2 Zu erweitern
 
-| Spectrum | TIPress-Erweiterung |
+| Spectrum | CHORUS-Erweiterung |
 |---|---|
 | Single setup phase (registriert Broadcaster einmalig) | Pro-Window Bootstrap mit Riposte |
 | Submissions enthalten nur DPF + MAC | Klartext-Format unverändert; alle binding-relevanten Werte (fp, P, π) im DPF-Payload |
@@ -1490,18 +1490,18 @@ Damit lernt der Verifier keine Information über $k_i^{(w)}$ oder den konkreten 
 ### 16.4 Verzeichnis-Struktur
 
 ```
-TIPress/
+CHORUS/
 ├── README.md
 ├── PROTOCOL_SPECIFICATION.md       (diese Datei)
 ├── config/
-│   └── tipress-config.yaml
+│   └── chorus-config.yaml
 ├── crates/                          (Rust Workspace)
 │   ├── spectrum-base/               (forked from Spectrum)
 │   ├── riposte-bootstrap/           (lightweight implementation)
-│   ├── tipress-server/              (S_A, S_B Spectrum binaries)
-│   ├── tipress-verifier/            (verifier library + standalone service)
-│   ├── tipress-client/              (member daemon for submissions)
-│   ├── tipress-consumer/            (SIEM integration daemon w/ embedded verifier)
+│   ├── chorus-server/              (S_A, S_B Spectrum binaries)
+│   ├── chorus-verifier/            (verifier library + standalone service)
+│   ├── chorus-client/              (member daemon for submissions)
+│   ├── chorus-consumer/            (SIEM integration daemon w/ embedded verifier)
 │   ├── fingerprint/                 (STIX parser + structured_digest_v1)
 │   ├── pseudonym/                   (Ristretto + HashToCurve + Ring-ZKP)
 │   ├── blacklist/                   (HashSet + weekly reset; lives in verifier)
@@ -1572,7 +1572,7 @@ TIPress/
 
 ### 18.1 Geklärte Designentscheidungen (Stand v0.2)
 
-Die folgenden Fragen aus dem Designprozess sind in dieser Version *abschließend geklärt*:
+Die folgenden Fragen aus dem Designprozess sind in dieser Version *geklärt*:
 
 **D1 — Partial-Overlap-Fingerprinting.** Akzeptiert als offenes Problem (§8.4). Lösung vertagt, das Problem ist dort konkret beschrieben. Der User hat angedeutet, eine clevere Technik anzuvisieren, die zwei STIX-Bundles desselben Angriffs auf einen gemeinsamen Fingerprint zwingt. Übergangslösung in v0.2: zweistufige Threshold-Logik (§11.3 Fingerprint-Level + Atomic-IOC-Level).
 
@@ -1595,43 +1595,25 @@ Die folgenden Fragen aus dem Designprozess sind in dieser Version *abschließend
 - **Semantic Attack Fingerprinting für Partial-Overlap (§8.4).** Lösung für das Problem, dass strukturell unterschiedliche STIX-Bundles desselben Angriffs auf einen gemeinsamen Fingerprint gezwungen werden müssen, ohne dass der Threshold-Mechanismus über Cluster-Boundaries operiert. Eine clevere Technik ist anvisiert; konkrete Konstruktion ist Gegenstand zukünftiger Arbeit.
 - **CP-ABE Reading Rights** für TLP-AMBER/RED-äquivalente Zugriffsklassen. Ciphertext-Policy Attribute-Based Encryption mit BBS+-attribute-bound credentials. Erlaubt, dass nur Mitglieder mit passenden Attributen (z.B. Sektor "Energy", Jurisdiktion "EU") bestimmte Records lesen können — anonymisierungserhaltend, ohne TTP.
 - **Empirische Bestimmung optimaler Window- und Round-Parameter.** v0.2 nutzt 1h/10min als pragmatischen Default. Optimal ist abhängig von ISAC-Größe, typischer Sharing-Frequenz, akzeptabler Latenz und Bootstrap-Overhead-Toleranz. Ein dedizierter empirischer Eval-Lauf an realen MISP-Workloads ist erforderlich.
-- **FL-IDS-Gewichts-Sharing (langfristig).** TIPress könnte als Transport-Layer für föderiertes Lernen genutzt werden: Mitglieder broadcasten anonymisierte IDS-Modell-Updates statt (oder ergänzend zu) STIX-IOCs. Wöchentliche Model-Updates statt rundenbasierter IOC-Submissions. Dies öffnet eine zweite Anwendungsklasse und integriert mit der breiteren FL-CTI-Literatur (SeCTIS, Fischer ETH). Konzeptionell offen: wie kompatibel sind FL-Aggregations-Pipelines mit Spectrum's Channel-Modell?
+- **FL-IDS-Gewichts-Sharing (langfristig).** CHORUS könnte als Transport-Layer für föderiertes Lernen genutzt werden: Mitglieder broadcasten anonymisierte IDS-Modell-Updates statt (oder ergänzend zu) STIX-IOCs. Wöchentliche Model-Updates statt rundenbasierter IOC-Submissions. Dies öffnet eine zweite Anwendungsklasse und integriert mit der breiteren FL-CTI-Literatur (SeCTIS, Fischer ETH). Konzeptionell offen: wie kompatibel sind FL-Aggregations-Pipelines mit Spectrum's Channel-Modell?
 - **Threshold-Deanonymisierung als Option.** Wiederbelebung des v0.1-Mechanismus für Hochsicherheits-Szenarien (z.B. wenn ISACs Reputations-Sanktionen via Identitäts-Aufdeckung gegen wiederholt poisonierende Mitglieder verhängen wollen). Aktuell nicht nötig, weil clientseitige Threshold-Verifikation den meisten Angriff-Fall abdeckt — aber als Notfall-Option dokumentierbar.
 - **Post-Quantum-Migration.** Spectrum nutzt DDH; PQ-Migration würde lattice-basierte DPF und PQ-MAC erfordern.
-- **Cross-ISAC-Federation.** Mehrere TIPress-Instanzen, die untereinander kollaborieren, ohne Anonymität innerhalb eines ISAC zu brechen.
+- **Cross-ISAC-Federation.** Mehrere CHORUS-Instanzen, die untereinander kollaborieren, ohne Anonymität innerhalb eines ISAC zu brechen.
 - **Privacy-Preserving Threshold-Tuning.** Consumer können ihr lokales $T$ adaptiv anpassen, basierend auf historisch beobachteter False-Positive-Rate, ohne ihre Wahl zu leaken.
 
-### 18.3 Ehrliche Einschätzung zur Contribution-Stärke v0.2
+### 18.3 Contributions v0.2
 
-Mit den Änderungen aus dieser Iteration ist das Profil weiter geschärft:
+Mit den Änderungen aus dieser Iteration ergeben sich folgende Contributions:
 
-- **Spectrum-Basis** statt Express signalisiert technische Reife und passt strukturell besser zu CTI.
 - **Per-Window Broadcaster-Rotation** ist ein eigenständiger, sauber publizierbarer Beitrag — Spectrum geht das Problem so nicht an.
 - **STIX-Fingerprint-Modul** ist ein konkreter, prüfbarer Engineering-Beitrag mit semantischem Mehrwert. Das offene Partial-Overlap-Problem (§8.4) wird klar als zu erforschende zukünftige Erweiterung markiert.
 - **Content-Bound Linkable Pseudonyms mit Post-Aggregation-Verifikation** (§7.1–§7.3, §8.5) löst das Self-Binding-Problem unter Wahrung der Spectrum-Anonymität. Die Konstruktion ist kryptographisch nicht-trivial (Ring-Membership-ZKP + DDH-basiertes Pseudonym), aber unter etablierten Standardannahmen (Discrete-Log, DDH, BBS+) beweisbar sicher. Das ist eine genuine kryptographische Contribution, nicht nur eine Engineering-Komposition.
 - **Client-Threshold-Verifikation** ist die *einfachste und gleichzeitig wirksamste* Anti-Poisoning-Maßnahme. Konzeptionell elegant: statt "wir versuchen kryptographisch zu garantieren, dass alle Submissions wahr sind", sagt sie "wir verlassen uns auf epidemiologische Korroboration in einer ohnehin verteilten Wahrheits-Findung".
-- **Output-Privacy-Layer (vereinfacht)** trägt die Aggregat-Leckage-Geschichte weiter, aber ohne den problematischen Synthetic-Channel-Mechanismus.
+- **Output-Privacy-Layer (vereinfacht)** trägt die Aggregat-Leckage-Geschichte weiter.
 
-In Summe ist das jetzt ein **Mid-to-Top-Tier-Applied-Security/Systems-Paper** mit echter kryptographischer Substanz. USENIX Security / NDSS Application Track sind im Bereich des Möglichen, sobald die offenen Punkte (Partial-Overlap-Lösung, empirische Window-Tuning, Eval-Pipeline) abgearbeitet sind.
+Ziel ist **Mid-to-Top-Tier-Applied-Security/Systems-Paper**. USENIX Security / NDSS Application Track sind im Bereich des Möglichen, sobald die offenen Punkte (Partial-Overlap-Lösung, empirische Window-Tuning, Eval-Pipeline) abgearbeitet sind.
 
-### 18.4 Anmerkung zur Verifikation der Whiteboard-Skizze
-
-Ich habe versucht, jede Element der Skizze zu adressieren:
-
-| Whiteboard-Element | Adressiert in |
-|---|---|
-| Alice + Bob senden $w_1, w_2$ an zwei Server | §7.1 (Main-Submission an $S_A$, $S_B$ via DPF-Shares) |
-| "Pseudo-Daten Covertraffic", "Random values, keine Nullen!" | §9.2 (in v0.2 vereinfacht: pre-Aggregation gibt es keine Klartext-Hashes mehr; Cover-Indistinguishability ist strukturell durch Spectrum-Konstruktion gegeben) |
-| hash + ZKP → "hash wird geblockt" | §7.1 ChannelPayload (P, π im DPF-Payload), §7.2 Verifier-Pipeline mit Blacklist-Check, §9.1 Pseudonym-Blacklist |
-| "weekly reset" | §9.1 (`reset_period_seconds: 604800`) |
-| Server XOR → Charlie | §13.2/§13.2b: Spectrum-Server publizieren agg-Shares; Verifier (Consumer oder dedicated) macht finale Aggregation und Verifikation |
-| "Threshold? Client-basiert, IOC-Fingerprint" | §11 (Client-Side Threshold-Verifikation) |
-| "Accountability? Anon Signatures? Insider Attack?" | §11.5 + §14.7 (Threshold-Soundness): Single-Insider neutralisiert durch $T = 3$; deeper Identity-Schicht → Future Work (§18.2 Threshold-Deanon) |
-| "Reading rights? sets, key sharing, anon, ohne TTP, Eigenschaftsvektor Client" | Future Work (§18.2 CP-ABE) |
-| "Client-seitige Aufgaben: sortieren, Analyse, …" | §11 (Consumer-Pipeline) + §13.2b (Verifier-Pipeline beim Consumer) |
-
-Falls ich ein Element falsch interpretiert habe, sag bitte Bescheid.
 
 ---
 
-*Ende der Protokollspezifikation v0.2 — TIPress Working Group, April 2026*
+*Ende der Protokollspezifikation v0.2 — CHORUS Working Group, April 2026*
