@@ -16,9 +16,9 @@
 
 4. **Client-seitige Threshold-Verifikation** *(neu)*. Konsumenten zählen lokal, wie oft ein Fingerprint innerhalb eines rolling window von mehreren Submittern *unabhängig* gemeldet wurde. Erst ab einem konfigurierbaren Schwellwert $T$ (typisch 3) wird der zugehörige IOC als verifiziert behandelt und ins SIEM gespeist. Dies ist eine epidemiologische Wahrheits-Aggregation: Falsche IOCs eines einzelnen maliciösen Submitters werden ignoriert, weil keine unabhängige Korroboration auftaucht.
 
-5. **Output-Privacy-Layer** *(aus v0.1 übernommen, weiter gültig)*. Die Mechanismen M1–M4 für E-DP-ABS bleiben relevant, weil das Public-Bulletin-Board-Modell unverändert ist. Sie schützen gegen Aggregate-Metadata-Leakage. Details siehe `expose_output_privacy.md`.
+**Orthogonale Forschungslinie (nicht Teil von v0.2).** Aggregate-Metadata-Leakage über die publizierte Bulletin-Board-DB — also Informationslecks an einen passiven Beobachter aus Publikations-Timing, Type-Verteilungen oder Volumen-Mustern — wird als eigenständige Forschungsrichtung in `expose_output_privacy.md` (E-DP-ABS-Framework) behandelt. CHORUS-v0.2 macht hierzu keine Aussage; die Spezifikation ist so geschnitten, dass eine spätere AML-Schicht orthogonal aufsetzen kann (siehe §18.2).
 
-**Was wir bewusst nicht mehr brauchen** (Vereinfachung gegenüber v0.1): Der heavy threshold-deanonymization-Mechanismus aus v0.1 entfällt. Die client-seitige Threshold-Verifikation (Contribution 4) macht eine kryptographische Identitäts-Aufdeckung im Normalfall überflüssig: gefälschte IOCs eines einzelnen Akteurs werden statistisch herausgefiltert, ohne dass jemand deanonymisiert werden muss. Threshold-Deanonymisierung bleibt als optionale Erweiterung dokumentiert (§18) für Szenarien, in denen Reputations- oder Sanktionsmechanismen ein konkretes Outing erfordern.
+**Vereinfachung gegenüber v0.1.** Der heavy threshold-deanonymization-Mechanismus aus v0.1 entfällt. Die client-seitige Threshold-Verifikation (Contribution 4) macht eine kryptographische Identitäts-Aufdeckung im Normalfall überflüssig: gefälschte IOCs eines einzelnen Akteurs werden statistisch herausgefiltert, ohne dass jemand deanonymisiert werden muss. Threshold-Deanonymisierung bleibt als optionale Erweiterung dokumentiert (§18) für Szenarien, in denen Reputations- oder Sanktionsmechanismen ein konkretes Outing erfordern.
 
 ---
 
@@ -33,7 +33,7 @@
 7. Main-Phase (Spectrum-basiert) — Submit, Audit, Post-Aggregation-Verifier
 8. STIX-Fingerprint-Modul (inkl. §8.4 offenes Partial-Overlap-Problem, §8.5 ZKP-basiertes Self-Binding)
 9. Pseudonym-Blacklist und Cover-Traffic
-10. Output-Privacy-Layer (M2 entfernt in v0.2)
+10. Operative Publikations-Pipeline (Batch-Coarsening, Cover-Traffic)
 11. Client-Seitige Threshold-Verifikation
 12. Wire-Formate und Datenstrukturen (inkl. §12.5 Verifier-State)
 13. Zustandsmaschinen (Klient, Spectrum-Server, Verifier, Consumer)
@@ -50,8 +50,8 @@
 ### 1.1 Designprinzipien
 
 - **P1 — Asymmetrie nutzen.** CTI-Sharing ist inhärent asymmetrisch: viele Empfänger, wenige aktive Sender pro Zeitraum. Spectrum nutzt diese Asymmetrie für Server-Effizienz. CHORUS macht sie explizit zum Architektur-Prinzip.
-- **P2 — Schichtenseparation.** Bootstrap-, Main-, Publish-, Output-Privacy- und Consume-Phasen sind klar getrennt. Jede hat eigene Schnittstellen, Sicherheitsannahmen und Performance-Charakteristiken.
-- **P3 — Bit-genaue Veröffentlichung des Inhalts.** Wo Records publiziert werden, sind sie bit-genau. Der Output-Privacy-Layer manipuliert ausschließlich Metadaten der Veröffentlichung.
+- **P2 — Schichtenseparation.** Bootstrap-, Main-, Publish- und Consume-Phasen sind klar getrennt. Jede hat eigene Schnittstellen, Sicherheitsannahmen und Performance-Charakteristiken.
+- **P3 — Bit-genaue Veröffentlichung des Inhalts.** Wo Records publiziert werden, sind sie bit-genau. Die operative Publikations-Pipeline (§10) führt höchstens reine Batch- und Ordering-Operationen aus und manipuliert keine Record-Inhalte.
 - **P4 — Defense in Depth gegen Poisoning.** Mehrere Verteidigungsschichten gegen falsche IOCs: (a) Spectrum-Audit gegen Disruption, (b) Hash-Blacklist gegen Multi-Submission durch einen Submitter, (c) Fingerprint-Robustheit gegen "kosmetisch verändertes Re-Submit", (d) Client-Threshold gegen Single-Source-Behauptungen.
 - **P5 — Implementierungs-Robustheit vor kryptographischer Eleganz.** Wir nutzen erprobte Primitiven (BLAKE3, Curve25519, AES-PRG) statt experimenteller Konstrukte.
 
@@ -91,7 +91,8 @@
                 │                   │ deduplicated                    │
                 │                   ▼                                 │
                 │  ┌────────────────────────────────────────────┐     │
-                │  │  Output Privacy Layer (M1-M4)              │     │
+                │  │  Publikations-Pipeline                     │     │
+                │  │  (Batch-Coarsening, signierte Veröffentl.) │     │
                 │  └────────────────┬───────────────────────────┘     │
                 │                   ▼                                 │
                 │  ┌────────────────────────────────────────────┐     │
@@ -100,7 +101,7 @@
                 │               │                                     │
                 │               ▼                                     │
                 │       ┌────────────────────────────┐                │
-                │       │  Consumer (Charlie)        │                │
+                │       │  Consumer                  │                │
                 │       │  - Parse, normalize, fp    │                │
                 │       │  - Fingerprint counter     │                │
                 │       │  - Threshold-T verification│                │
@@ -183,7 +184,7 @@ PRG(seed, n) → bytes                   Pseudo-random byte stream
 
 **Mitglieder $\mathcal{P}$ (Members).** Jede Organisation, die am ISAC teilnimmt. In jeder Phase (Bootstrap und Main) sind sie *immer* aktiv. Pro Window kann ein Mitglied wahlweise als *Broadcaster* (will senden) oder als *Subscriber* (nur Empfangen + Cover) auftreten. Diese Rolle ist pro Window aufs Neue wählbar.
 
-**Server $S_A, S_B$.** Zwei unabhängig betriebene Server. Verarbeiten DPF-Shares, führen Audits durch, verwalten die Hash-Blacklist, führen den Output-Privacy-Layer aus, publizieren die DB.
+**Server $S_A, S_B$.** Zwei unabhängig betriebene Server. Verarbeiten DPF-Shares, führen Audits durch, publizieren ihre aggregierten Shares. Pseudonym-Blacklist und post-aggregation Verifikation laufen im *Verifier* (siehe §7.3.3, §12.5), nicht in den Spectrum-Servern.
 
 **ISAC-Authority $\mathcal{I}$.** Vergibt BBS+-Credentials bei Member-Onboarding. Nicht in Bootstrap/Main involviert.
 
@@ -204,7 +205,7 @@ PRG(seed, n) → bytes                   Pseudo-random byte stream
 | $\mathcal{A}_{\mathrm{Server}}$ | $S_A$ ODER $S_B$ (nicht beide) | Sender-Anonymität | Spectrum-Anonymity (Theorem 1) |
 | $\mathcal{A}_{\mathrm{Member}}^{\mathrm{Disrupt}}$ | maliciöse Members senden ill-formed shares | Liveness | Spectrum-Audit + BlameGame |
 | $\mathcal{A}_{\mathrm{Member}}^{\mathrm{Poison}}$ | maliciöse Members broadcasten falsche IOCs | DB-Qualität | Hash-Blacklist + Client-Threshold |
-| $\mathcal{A}_{\mathrm{Pub}}$ | passiver Beobachter der DB | E-DP-ABS | Output-Privacy-Layer |
+| $\mathcal{A}_{\mathrm{Pub}}$ | passiver Beobachter der publizierten DB | Aggregate-Metadata-Leakage | *außerhalb des CHORUS-v0.2-Scope; orthogonale Forschungslinie, siehe §18.2 und `expose_output_privacy.md`* |
 | $\mathcal{A}_{\mathrm{Net}}$ | Network-Adversary | Anonymity-Set-Information | Konstante $L$ + immer-aktive Member |
 
 ---
@@ -458,7 +459,7 @@ Wenn zwei Mitglieder denselben `claim_idx` $j$ wählen (selten, aber möglich be
 
 - **Anonymität:** Riposte garantiert Sender-Anonymität gegenüber $\mathcal{A}_{\mathrm{Server}}$ und $\mathcal{A}_{\mathrm{Net}}$. Server sehen $L'$ Channel-Anmeldungen, aber nicht, wer sie eingereicht hat.
 - **Membership-Soundness:** BBS+-Proof verhindert, dass Nicht-Mitglieder einen Channel claimen.
-- **Volume-Beobachtbarkeit:** $L'$ pro Window ist *beobachtbar*. Das ist eine bewusst akzeptierte Schwäche zugunsten der operativen Klarheit (siehe Designentscheidung in §5.3). Der Output-Privacy-Layer (M1: Temporal Delay, §10.1) kompensiert teilweise, indem er die Publikations-Timing über mehrere Rounds streut.
+- **Volume-Beobachtbarkeit:** $L'$ pro Window ist *beobachtbar*. Das ist eine bewusst akzeptierte Schwäche zugunsten der operativen Klarheit (siehe Designentscheidung in §5.3). Eine Behandlung der dadurch entstehenden Aggregat-Leckage ist nicht Teil von v0.2; sie ist als orthogonale Folgearbeit positioniert (§14.4, §18.2).
 
 ### 6.5 Bandbreiten-Analyse Bootstrap
 
@@ -800,7 +801,7 @@ Der clientseitige Threshold-Counter wird sie nicht zusammenführen.
 - *Canonical Attack Identifier (z.B. MITRE-Campaign-ID):* würde funktionieren, *wenn* Submitter denselben Identifier verwenden. In der Praxis benennen verschiedene Analysten Angriffe oft unterschiedlich.
 - *Server-seitige IOC-Korrelation:* würde Anonymität potenziell brechen, weil Server entscheiden, welche Submissions "zum gleichen Angriff" gehören.
 
-**Status v0.2:** *Problem dokumentiert, Lösung vertagt.* Der User hat angedeutet, dass eine clevere Technik existieren könnte, die zwei STIX-Bundles desselben Angriffs auf einen gemeinsamen Fingerprint zwingt. Dieses Konstrukt — *Semantic Attack Fingerprinting* — wird in einer zukünftigen Iteration ausgearbeitet.
+**Status v0.2:** *Problem dokumentiert, Lösung vertagt.* Eine semantik-bewahrende Fingerprint-Konstruktion, die zwei STIX-Bundles desselben Angriffs auf einen gemeinsamen Fingerprint zwingt — im Folgenden als *Semantic Attack Fingerprinting* bezeichnet — wird in einer zukünftigen Iteration ausgearbeitet.
 
 **Übergangslösung v0.2:** Der Consumer-seitige Threshold-Counter ist um eine **atomare IOC-Zähl-Schicht** ergänzt (siehe §11.3). Dort werden nicht nur Fingerprints, sondern auch einzelne atomare Observable (IPs, Hashes, Domains) gezählt. Damit erfassen wir Teil-Übereinstimmungen auf der IOC-Ebene, ohne den Fingerprint zu erweitern. Akzeptiertes Schwächeprofil: ein Angreifer könnte einen False-IOC mit echten, bereits korrobierierten IOCs bündeln und so die atomare Zählung "huckepack" verwenden. Die formale Analyse dieses Risikos ist ebenfalls Teil der Future Work.
 
@@ -905,49 +906,31 @@ Verifier-Storage pro Woche: ca. $L' \cdot R \cdot 7$ Pseudonyme = bei $L' = 20$,
 
 ---
 
-## 10. Output-Privacy-Layer
+## 10. Operative Publikations-Pipeline
 
-**Übernommen aus v0.1 mit Spectrum-spezifischen Anpassungen.** Vollständige Diskussion in `expose_output_privacy.md`. Hier nur die Spectrum-spezifische Realisierung.
+Dieses Kapitel beschreibt zwei Aspekte der Publikations-Pipeline, die keine kryptographischen Anonymitäts-Garantien begründen, aber für ein deploybares System spezifiziert sein müssen: die operative Batch-Granularität der Veröffentlichung und den Cover-Traffic-Mechanismus auf Submit-Seite.
 
-### 10.1 M1 — Temporal Delay
+**Abgrenzung.** Aggregate-Metadata-Leakage (AML) — also Informationslecks, die ein passiver Beobachter aus Publikations-Timing, Type-Verteilungen oder Volumen-Mustern *über mehrere Rounds hinweg* extrahieren könnte — ist eine eigenständige, orthogonale Forschungslinie und nicht Teil der CHORUS-v0.2-Kernspezifikation. Die zugehörige Mechanismen-Familie (Temporal Delay, Type Bucketing, Differential-Privacy-Komposition über Anonymous-Broadcast-Streams) ist in einem separaten Exposé (`expose_output_privacy.md`) ausgearbeitet und wird in §18.2 als Future-Work-Strang referenziert.
 
-Identisch zu v0.1: pro publikationswürdigem Record wird ein verzögerter Veröffentlichungszeitpunkt gezogen. Die Verzögerung wird *nicht* in Spectrum-Rounds gemessen, sondern in Main-Rounds des Windows. Die Berechnung passiert beim Verifier (post-Aggregation):
+### 10.1 Batch-Coarsening *(operativ, nicht anonymitätsrelevant)*
 
-```
-delayed_publication_round ← r + Geometric_Truncated(p=1/3, max=6)
-                                using PRG(K_M1_shared, record.P)
-                                // P ist eindeutig pro (Member, IOC, Woche)
-                                // und dient hier als deterministische
-                                // Quelle für die individuelle Verzögerung.
-```
+**Zweck.** Vereinfacht die Schnittstelle zwischen Verifier und Konsument, reduziert API-Roundtrips und glättet die per-Round-Burstigkeit der publizierten Records.
 
-Bei dezentraler Verifier-Architektur (Consumer-Side) müssen alle Verifier denselben $K_{M1}^{\mathrm{shared}}$ kennen — wird aus der signed Konfiguration abgeleitet, die alle ISAC-Member ohnehin teilen.
+**Mechanismus.** $B$ aufeinanderfolgende Main-Rounds eines Windows werden vom Verifier zu einem Meta-Batch zusammengefasst. Innerhalb eines Meta-Batches wird die Ausgabe-Reihenfolge der Records durch einen deterministischen Shared-PRG permutiert (Seed: $(w, \mathsf{batch\_index})$, abgeleitet aus der signed Konfiguration). $B$ ist Konfigurationsparameter, Default $B = 4$.
 
-### 10.2 M2 — Synthetic Channel Injection *(entfernt in v0.2)*
+**Was dies leistet.** Vorhersagbare API-Last für Consumer-Side-Threshold-Engines; deterministische Reihenfolge über alle Verifier-Instanzen (wichtig bei Consumer-Side-Verifier-Deployment, damit zwei Verifier in zwei Organisationen für denselben Window dieselbe Reihenfolge publizieren — relevant für Reproduzierbarkeit und Audit).
 
-**Designentscheidung v0.2:** Synthetic Channel Injection wurde entfernt. Begründung:
+**Was dies *nicht* leistet.** Keine kryptographische Verschleierung von Submission-Timing. Innerhalb eines Meta-Batches wird die feinkörnige Round-Zuordnung aufgegeben, aber die Verifier-Output-Frequenz bleibt aus extern beobachtbar. Batch-Coarsening ist eine Engineering-Maßnahme, kein Anonymisierungs-Primitive.
 
-- Operativ heikel: Server müssten plausible STIX-Records erzeugen und in den Stream einspeisen. Bei einem fälschlichen Eintrag in ein Consumer-SIEM stellt sich die Haftungsfrage. Für ISAC-Stakeholder wäre das schwer zu argumentieren.
-- Mit der Pflichtteilnahme aller $N$ Mitglieder (jeder sendet pro Round entweder echt oder Cover) und der korrekten Cover-Hash-Konstruktion (§9.2) sind die Anonymitäts-Schutzziele auch ohne Synthetic Injection erreichbar.
-- Die effektive Anzahl realer Broadcaster $L'$ ist damit aus extern beobachtbar — dies ist eine bewusst akzeptierte Schwäche zugunsten operativer Sauberkeit (vgl. §5.3, §6.4).
+### 10.2 Cover-Traffic-Mechanismus
 
-Volume-Beobachtbarkeit wird stattdessen durch zwei orthogonale Mechanismen kompensiert: (a) M1 (Temporal Delay) streut Publikationen über mehrere Rounds, (b) die Klassen-Aggregation in M3 reduziert die diskriminierende Information pro Channel.
+In CHORUS gibt es einen einzigen Cover-Mechanismus, der direkt aus der Spectrum-Konstruktion folgt:
 
-### 10.3 M3 — Type Bucketing
+**Subscriber-Cover-Traffic (Pflicht).** Jedes Mitglied $P_i$ schickt pro Main-Round genau eine Spectrum-Submission. Wenn $P_i$ in dem aktuellen Window Broadcaster ist, ist es eine echte Submission auf den ihm zugewiesenen Channel; andernfalls sendet $P_i$ eine $m = 0$ Spectrum-Cover-Submission. Aus Sicht eines korrumpierten Servers (höchstens einer) und externer Netzwerkbeobachter sind echte und Cover-Submissions ununterscheidbar — Cover-Indistinguishability ist strukturell durch die DPF+MAC-Konstruktion von Spectrum gegeben (Spectrum Anonymity Theorem 1).
 
-Identisch zu v0.1. Im publizierten Record wird nur der Bucket-Typ angezeigt.
+**Konsequenz.** Es ist *kein* separater Cover-Hash-Mechanismus, kein synthetisches Channel-Injection und keine weitere Plaintext-Cover-Logik nötig. Die Anonymitäts-Garantie der Main-Phase reduziert sich vollständig auf die Spectrum-Annahmen plus die Pflichtteilnahme aller Mitglieder pro Round.
 
-### 10.4 M4 — Batch Coarsening
-
-Identisch zu v0.1. Mehrere Main-Rounds werden zu einem Meta-Batch zusammengefasst, intra-Batch-Permutation deterministisch via shared PRG.
-
-### 10.5 Cover-Traffic-Mechanismus (vereinfachte Klarstellung)
-
-In CHORUS v0.2 gibt es **nur einen** Cover-Mechanismus:
-
-**Subscriber-Cover-Traffic (Pflicht).** Jedes Mitglied $P_i$ schickt pro Main-Round genau eine Spectrum-Submission. Wenn $P_i$ Broadcaster in diesem Window ist, ist es eine echte Submission; sonst sendet $P_i$ eine $m = 0$ Spectrum-Cover-Submission. Aus Server- und externer-Beobachter-Sicht sind echte und Cover-Submissions ununterscheidbar (Spectrum-Theorem 1) — Cover-Indistinguishability ist strukturell durch die DPF+MAC-Konstruktion gegeben, ohne separaten Cover-Hash-Mechanismus (§9.2).
-
-Synthetic Channel Injection wurde explizit entfernt (siehe §10.2). Damit ist $L'$ (Anzahl echter Broadcaster pro Window) als beobachtbare Grösse akzeptiert.
+**Akzeptierte Beobachtbarkeit.** Die effektive Anzahl realer Broadcaster pro Window $L'$ ist als beobachtbare Größe akzeptiert: ein externer Beobachter kann nach Verifier-Output zählen, wie viele Channels in einem Window non-empty Klartext-Records produzierten. Verschleierung dieser Größe (Volume-Hiding) wäre nur via synthetischer Records erreichbar, was operativ und haftungstechnisch nicht tragbar ist (insbesondere für SIEM-Konsumenten, die ein synthetisches IOC nicht von einem echten unterscheiden könnten). $L'$-Beobachtbarkeit wird als bewusste Designentscheidung zugunsten operativer Sauberkeit dokumentiert (siehe §5.3, §6.4).
 
 ---
 
@@ -955,7 +938,7 @@ Synthetic Channel Injection wurde explizit entfernt (siehe §10.2). Damit ist $L
 
 ### 11.1 Konzept
 
-Der Consumer-Client (Charlie im Whiteboard) führt clientseitig eine **Wahrheits-Aggregation** durch. Konzeptionell wichtig: der Threshold zählt *unabhängige Member-Reports* desselben Fingerprints — und "unabhängig" wird über die *Pseudonyme* $P$ definiert, weil verschiedene Member für denselben fp verschiedene $P$ produzieren.
+Der Consumer-Client führt clientseitig eine **Wahrheits-Aggregation** durch. Konzeptionell wichtig: der Threshold zählt *unabhängige Member-Reports* desselben Fingerprints — und "unabhängig" wird über die *Pseudonyme* $P$ definiert, weil verschiedene Member für denselben fp verschiedene $P$ produzieren.
 
 ```
 Naive consumer (without threshold):
@@ -1095,7 +1078,6 @@ struct PublishedChannel {
     uint64 window;
     uint32 round;
     uint8  channel_index;
-    uint8  bucket_type;              // M3 result
     uint16 payload_size;
     bytes  stix_bundle;              // STIX bundle (variable size)
     bytes32 fp_claimed;              // explicit fingerprint from submitter
@@ -1126,8 +1108,8 @@ struct PublishedRound {
 
 ```
 struct SpectrumServerState {
-    K_coord:        bytes32          // shared with peer server (M1/M4 only)
-    K_M1, K_M4:     bytes32          // derived from K_coord (M2 removed in v0.2)
+    K_coord:        bytes32          // shared with peer server (publication coord)
+    K_batch:        bytes32          // derived from K_coord; seeds Batch-Coarsening PRG (§10.1)
 
     current_window: u64
     window_channels: [(j, g_alpha_j)]                  // length = L'
@@ -1137,7 +1119,6 @@ struct SpectrumServerState {
     //       Spectrum servers only do DPF audit + aggregate-share
     //       publication. Verification and blacklist logic is post-aggregation.
 
-    pending_publications: map<round, deferred Records>   // M1 queue
     
     member_list: [MemberID]
     pk_t: -                           // (unused in v0.2)
@@ -1163,7 +1144,7 @@ struct VerifierState {
     ristretto_params: GroupParams
 
     cached_aggregations: map<round, AggregatedChannels>
-                                             // for output-privacy & threshold
+                                             // for batch-coarsening (§10.1) & threshold
 
     // (only if dedicated verifier service)
     long_term_signing_key: Ed25519SecretKey
@@ -1272,7 +1253,7 @@ Round r ends
          │
          ▼
 ┌────────────────────┐
-│ OutputPrivacy M1/M3/M4
+│ BatchCoarsening    │  (§10.1) deterministic PRG-permutation
 └────────┬───────────┘
          │
          ▼
@@ -1344,11 +1325,11 @@ Aggregate + Verify locally"; see §13.2b.)
 
 ### 14.3 Volume-Beobachtbarkeit
 
-**Beobachtung (geändert in v0.2):** Die Anzahl realer Broadcaster pro Window $L'$ ist *beobachtbar* (Synthetic-Channel-Injection aus v0.1 wurde entfernt). Volume-Hiding wird zugunsten operativer Sauberkeit aufgegeben; der Output-Privacy-Layer (M1: Temporal Delay) streut den Effekt zumindest über mehrere Rounds.
+**Beobachtung.** Die Anzahl realer Broadcaster pro Window $L'$ ist beobachtbar. Synthetische Channel-Injection als Volume-Hiding-Mechanismus wurde in v0.2 explizit verworfen (operativ und haftungstechnisch nicht tragbar für SIEM-Konsumenten); Volume-Hiding ist damit nicht Teil der Garantien dieser Spezifikation.
 
-### 14.4 Output-Privacy (E-DP-ABS)
+### 14.4 Aggregate-Metadata-Leakage *(außerhalb des Scope)*
 
-Wie in `expose_output_privacy.md` §5.3. Komposition der M1/M3/M4-Mechanismen (M2 entfernt).
+Informationslecks an einen passiven Beobachter der publizierten Bulletin-Board-DB über Publikations-Timing, Type-Verteilungen oder Korrelationen über mehrere Windows hinweg sind im aktuellen Threat-Modell *nicht* abgedeckt. Diese Klasse von Lecks (Aggregate-Metadata-Leakage, AML) wird als eigenständige Forschungslinie in `expose_output_privacy.md` (E-DP-ABS-Framework) behandelt. Die CHORUS-v0.2-Spezifikation ist so geschnitten, dass eine zukünftige AML-Schicht orthogonal aufgesetzt werden kann (siehe §18.2).
 
 ### 14.5 Write-Integrität
 
@@ -1427,11 +1408,11 @@ Damit lernt der Verifier keine Information über $k_i^{(w)}$ oder den konkreten 
 - **Sanktionspolitik:** Channels mit `self-binding-fail`, `zkp-fail` oder `duplicate` werden mit dem entsprechenden Marker in der publizierten DB stehen gelassen. *Kein expliziter Member-Ban* — Konsumenten entscheiden lokal über die Verwendung markierter Channels.
 - **Akzeptanzkriterien:** (a) ZKP-Proof-Größe ≤ 5 KB; (b) Verify ≤ 30 ms; (c) Doppelte Submission desselben Fingerprints durch denselben Member führt zu `duplicate`-Markierung; (d) Submissions verschiedener Member desselben Fingerprints führen zu zwei verschiedenen, beide gültigen Channels.
 
-### 15.5 Iteration 5 — Output-Privacy-Layer (Wochen 14–18)
+### 15.5 Iteration 5 — Publikations-Pipeline (Wochen 14–18)
 
-- M1, M3, M4 wie in v0.1 spezifiziert, angepasst für Spectrum-Channels
-- M2 entfernt (siehe §10.2 v0.2-Designentscheidung)
-- **Akzeptanzkriterium:** Empirische DP-Garantien für M1/M3/M4 gemessen.
+- Batch-Coarsening (§10.1) mit konfigurierbarem $B$ und deterministischer Intra-Batch-Permutation
+- Cover-Traffic-Konformität (§10.2): Tests, dass jedes Mitglied pro Main-Round genau eine Submission produziert (echt oder Cover) und dass Cover-Indistinguishability gegen einen halbehrlichen Server hält
+- **Akzeptanzkriterium:** (a) deterministische, reproduzierbare Output-Reihenfolge bei zwei unabhängigen Verifier-Instanzen für denselben Window; (b) $L'$-Stabilität bei konstanter Member-Pflichtteilnahme.
 
 ### 15.6 Iteration 6 — Consumer-Threshold (Wochen 19–20)
 
@@ -1469,7 +1450,7 @@ Damit lernt der Verifier keine Information über $k_i^{(w)}$ oder den konkreten 
 | Single setup phase (registriert Broadcaster einmalig) | Pro-Window Bootstrap mit Riposte |
 | Submissions enthalten nur DPF + MAC | Klartext-Format unverändert; alle binding-relevanten Werte (fp, P, π) im DPF-Payload |
 | Audit-Pipeline (Server-Side) | Spectrum-Audit unverändert; *zusätzlicher* Verifier (Consumer oder Service) macht post-Aggregation-Verifikation |
-| Server-Publikation | Spectrum-Server publizieren agg-Shares; Verifier publiziert verifizierte DB inkl. Markierungen + Output-Privacy-Transformationen (M1/M3/M4) |
+| Server-Publikation | Spectrum-Server publizieren agg-Shares; Verifier publiziert verifizierte DB inkl. Markierungen und Batch-Coarsening (§10.1) |
 
 ### 16.3 Neu zu schreiben
 
@@ -1485,7 +1466,7 @@ Damit lernt der Verifier keine Information über $k_i^{(w)}$ oder den konkreten 
 | Consumer-Threshold-Engine |
 | STIX 2.1 Parser-Integration |
 | Public HTTP-API für DB-Download und Diff |
-| Output-Privacy-Modul (M1/M3/M4, beim Verifier) |
+| Publish-Pipeline-Modul (Batch-Coarsening §10.1, beim Verifier) |
 
 ### 16.4 Verzeichnis-Struktur
 
@@ -1505,7 +1486,7 @@ CHORUS/
 │   ├── fingerprint/                 (STIX parser + structured_digest_v1)
 │   ├── pseudonym/                   (Ristretto + HashToCurve + Ring-ZKP)
 │   ├── blacklist/                   (HashSet + weekly reset; lives in verifier)
-│   ├── output-privacy/              (M1/M3/M4 implementations; lives in verifier)
+│   ├── publish-pipeline/            (Batch-Coarsening §10.1; lives in verifier)
 │   ├── bbs-plus/                    (or use existing crate, e.g. zkp-stuff)
 │   └── stix-types/                  (STIX 2.1 minimal types)
 ├── tests/
@@ -1574,7 +1555,7 @@ CHORUS/
 
 Die folgenden Fragen aus dem Designprozess sind in dieser Version *geklärt*:
 
-**D1 — Partial-Overlap-Fingerprinting.** Akzeptiert als offenes Problem (§8.4). Lösung vertagt, das Problem ist dort konkret beschrieben. Der User hat angedeutet, eine clevere Technik anzuvisieren, die zwei STIX-Bundles desselben Angriffs auf einen gemeinsamen Fingerprint zwingt. Übergangslösung in v0.2: zweistufige Threshold-Logik (§11.3 Fingerprint-Level + Atomic-IOC-Level).
+**D1 — Partial-Overlap-Fingerprinting.** Akzeptiert als offenes Problem (§8.4). Lösung vertagt, das Problem ist dort konkret beschrieben. Eine semantik-bewahrende Fingerprint-Konstruktion (*Semantic Attack Fingerprinting*), die zwei STIX-Bundles desselben Angriffs auf einen gemeinsamen Fingerprint zwingt, ist als zukünftige Erweiterung anvisiert. Übergangslösung in v0.2: zweistufige Threshold-Logik (§11.3 Fingerprint-Level + Atomic-IOC-Level).
 
 **D2 — Fingerprint-Self-Binding.** Gelöst über die Pseudonym-Konstruktion mit ZKP-Bindung und post-Aggregation-Verifikation (§7.1, §7.2, §7.3, §8.5). Die vorherige Zwei-Hash-Konstruktion hatte einen Soundness-Bug (Server konnte HMAC nicht verifizieren, weil $K_i^{(w)}$ unbekannt) — sie ist verworfen. Die neue Konstruktion bettet $P = H_\mathsf{fp}^{k_i^{(w)}}$ zusammen mit einem Ring-Membership-ZKP im DPF-verschlüsselten Payload ein; ein post-Aggregation-Verifier (Consumer oder dedicated service) prüft Self-Binding und ZKP, ohne Anonymität zu brechen.
 
@@ -1592,6 +1573,7 @@ Die folgenden Fragen aus dem Designprozess sind in dieser Version *geklärt*:
 
 ### 18.2 Future Work (v0.3+)
 
+- **Aggregate-Metadata-Leakage (AML) der publizierten DB.** Ein passiver Beobachter des publizierten Bulletin-Boards kann über Publikations-Timing, Type-Verteilungen und Volumen-Muster über mehrere Windows hinweg Aggregat-Information extrahieren, die einzelne Submitter teilweise re-identifizieren könnte. Diese Klasse von Lecks ist im aktuellen Threat-Modell explizit *außerhalb des Scope* (§14.4) und wird im separaten Exposé `expose_output_privacy.md` als eigenständige Forschungsrichtung mit dem E-DP-ABS-Framework (Event-Level Differential Privacy über Anonymous Broadcast Streams) ausgearbeitet. Eine zukünftige Version kann eine AML-Schicht orthogonal zur Submit-Anonymität von CHORUS-v0.2 aufsetzen.
 - **Semantic Attack Fingerprinting für Partial-Overlap (§8.4).** Lösung für das Problem, dass strukturell unterschiedliche STIX-Bundles desselben Angriffs auf einen gemeinsamen Fingerprint gezwungen werden müssen, ohne dass der Threshold-Mechanismus über Cluster-Boundaries operiert. Eine clevere Technik ist anvisiert; konkrete Konstruktion ist Gegenstand zukünftiger Arbeit.
 - **CP-ABE Reading Rights** für TLP-AMBER/RED-äquivalente Zugriffsklassen. Ciphertext-Policy Attribute-Based Encryption mit BBS+-attribute-bound credentials. Erlaubt, dass nur Mitglieder mit passenden Attributen (z.B. Sektor "Energy", Jurisdiktion "EU") bestimmte Records lesen können — anonymisierungserhaltend, ohne TTP.
 - **Empirische Bestimmung optimaler Window- und Round-Parameter.** v0.2 nutzt 1h/10min als pragmatischen Default. Optimal ist abhängig von ISAC-Größe, typischer Sharing-Frequenz, akzeptabler Latenz und Bootstrap-Overhead-Toleranz. Ein dedizierter empirischer Eval-Lauf an realen MISP-Workloads ist erforderlich.
@@ -1609,9 +1591,10 @@ Mit den Änderungen aus dieser Iteration ergeben sich folgende Contributions:
 - **STIX-Fingerprint-Modul** ist ein konkreter, prüfbarer Engineering-Beitrag mit semantischem Mehrwert. Das offene Partial-Overlap-Problem (§8.4) wird klar als zu erforschende zukünftige Erweiterung markiert.
 - **Content-Bound Linkable Pseudonyms mit Post-Aggregation-Verifikation** (§7.1–§7.3, §8.5) löst das Self-Binding-Problem unter Wahrung der Spectrum-Anonymität. Die Konstruktion ist kryptographisch nicht-trivial (Ring-Membership-ZKP + DDH-basiertes Pseudonym), aber unter etablierten Standardannahmen (Discrete-Log, DDH, BBS+) beweisbar sicher. Das ist eine genuine kryptographische Contribution, nicht nur eine Engineering-Komposition.
 - **Client-Threshold-Verifikation** ist die *einfachste und gleichzeitig wirksamste* Anti-Poisoning-Maßnahme. Konzeptionell elegant: statt "wir versuchen kryptographisch zu garantieren, dass alle Submissions wahr sind", sagt sie "wir verlassen uns auf epidemiologische Korroboration in einer ohnehin verteilten Wahrheits-Findung".
-- **Output-Privacy-Layer (vereinfacht)** trägt die Aggregat-Leckage-Geschichte weiter.
 
-Ziel ist **Mid-to-Top-Tier-Applied-Security/Systems-Paper**. USENIX Security / NDSS Application Track sind im Bereich des Möglichen, sobald die offenen Punkte (Partial-Overlap-Lösung, empirische Window-Tuning, Eval-Pipeline) abgearbeitet sind.
+Aggregate-Metadata-Leakage (AML) der publizierten DB ist explizit nicht Teil dieser Contributions und wird als orthogonale Folgearbeit positioniert (§18.2, `expose_output_privacy.md`).
+
+Zielklasse: **Mid-to-Top-Tier-Applied-Security/Systems-Paper**. USENIX Security / NDSS Application Track sind im Bereich des Möglichen, sobald die offenen Punkte (Partial-Overlap-Lösung, empirische Window-Tuning, Eval-Pipeline) abgearbeitet sind.
 
 
 ---
